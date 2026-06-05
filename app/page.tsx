@@ -7,6 +7,7 @@ interface Todo {
   text: string;
   completed: boolean;
   createdAt: number;
+  dueDate?: string; // YYYY-MM-DD
 }
 
 type Filter = "all" | "active" | "completed";
@@ -29,11 +30,11 @@ function useTodos() {
     }
   }, [todos]);
 
-  const add = (text: string) => {
+  const add = (text: string, dueDate?: string) => {
     const trimmed = text.trim();
     if (!trimmed) return;
     setTodos((prev) => [
-      { id: crypto.randomUUID(), text: trimmed, completed: false, createdAt: Date.now() },
+      { id: crypto.randomUUID(), text: trimmed, completed: false, createdAt: Date.now(), dueDate },
       ...prev,
     ]);
   };
@@ -57,9 +58,38 @@ function useTodos() {
   return { todos, add, toggle, remove, clearCompleted, toggleAll };
 }
 
+function DueDate({ date, completed }: { date: string; completed: boolean }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const overdue = !completed && date < today;
+  const dueToday = !completed && date === today;
+
+  return (
+    <span
+      className={`text-xs px-1.5 py-0.5 rounded ml-2 whitespace-nowrap ${
+        completed
+          ? "text-gray-300 dark:text-gray-600"
+          : overdue
+          ? "bg-rose-100 text-rose-500 dark:bg-rose-900/40 dark:text-rose-400"
+          : dueToday
+          ? "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400"
+          : "text-gray-400 dark:text-gray-500"
+      }`}
+    >
+      {overdue ? "⚠ " : dueToday ? "Today" : ""}
+      {overdue || dueToday
+        ? ""
+        : new Date(date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+      {overdue
+        ? new Date(date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })
+        : ""}
+    </span>
+  );
+}
+
 export default function Home() {
   const { todos, add, toggle, remove, clearCompleted, toggleAll } = useTodos();
   const [input, setInput] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
 
   const filtered = todos.filter((t) => {
@@ -73,8 +103,9 @@ export default function Home() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    add(input);
+    add(input, dueDate || undefined);
     setInput("");
+    setDueDate("");
   };
 
   return (
@@ -87,25 +118,47 @@ export default function Home() {
         {/* Input row */}
         <form
           onSubmit={handleSubmit}
-          className="flex items-center bg-white dark:bg-gray-800 px-4 py-3 border-b border-gray-200 dark:border-gray-700"
+          className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"
         >
-          {todos.length > 0 && (
-            <button
-              type="button"
-              onClick={toggleAll}
-              className="mr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none"
-              aria-label="Toggle all"
-            >
-              ❯
-            </button>
-          )}
-          <input
-            autoFocus
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="What needs to be done?"
-            className="flex-1 bg-transparent outline-none text-gray-700 dark:text-gray-200 placeholder-gray-300 dark:placeholder-gray-500 text-lg"
-          />
+          <div className="flex items-center px-4 pt-3 pb-2">
+            {todos.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleAll}
+                className="mr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none"
+                aria-label="Toggle all"
+              >
+                ❯
+              </button>
+            )}
+            <input
+              autoFocus
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="What needs to be done?"
+              className="flex-1 bg-transparent outline-none text-gray-700 dark:text-gray-200 placeholder-gray-300 dark:placeholder-gray-500 text-lg"
+            />
+          </div>
+          <div className="flex items-center gap-2 px-4 pb-3">
+            <label className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
+              Due date
+            </label>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="text-xs text-gray-500 dark:text-gray-400 bg-transparent outline-none border border-gray-200 dark:border-gray-600 rounded px-2 py-0.5 cursor-pointer"
+            />
+            {dueDate && (
+              <button
+                type="button"
+                onClick={() => setDueDate("")}
+                className="text-gray-300 hover:text-gray-500 text-sm leading-none"
+              >
+                ×
+              </button>
+            )}
+          </div>
         </form>
 
         {/* Todo list */}
@@ -142,6 +195,9 @@ export default function Home() {
               >
                 {todo.text}
               </span>
+              {todo.dueDate && (
+                <DueDate date={todo.dueDate} completed={todo.completed} />
+              )}
               <button
                 onClick={() => remove(todo.id)}
                 className="text-gray-300 dark:text-gray-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity text-xl leading-none ml-2"
