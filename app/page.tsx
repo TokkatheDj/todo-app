@@ -1,65 +1,198 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+
+interface Todo {
+  id: string;
+  text: string;
+  completed: boolean;
+  createdAt: number;
+}
+
+type Filter = "all" | "active" | "completed";
+
+function useTodos() {
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const loaded = useRef(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("todos");
+      if (saved) setTodos(JSON.parse(saved));
+    } catch {}
+    loaded.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (loaded.current) {
+      localStorage.setItem("todos", JSON.stringify(todos));
+    }
+  }, [todos]);
+
+  const add = (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    setTodos((prev) => [
+      { id: crypto.randomUUID(), text: trimmed, completed: false, createdAt: Date.now() },
+      ...prev,
+    ]);
+  };
+
+  const toggle = (id: string) =>
+    setTodos((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
+    );
+
+  const remove = (id: string) =>
+    setTodos((prev) => prev.filter((t) => t.id !== id));
+
+  const clearCompleted = () =>
+    setTodos((prev) => prev.filter((t) => !t.completed));
+
+  const toggleAll = () => {
+    const allDone = todos.every((t) => t.completed);
+    setTodos((prev) => prev.map((t) => ({ ...t, completed: !allDone })));
+  };
+
+  return { todos, add, toggle, remove, clearCompleted, toggleAll };
+}
 
 export default function Home() {
+  const { todos, add, toggle, remove, clearCompleted, toggleAll } = useTodos();
+  const [input, setInput] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
+
+  const filtered = todos.filter((t) => {
+    if (filter === "active") return !t.completed;
+    if (filter === "completed") return t.completed;
+    return true;
+  });
+
+  const activeCount = todos.filter((t) => !t.completed).length;
+  const hasCompleted = todos.some((t) => t.completed);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    add(input);
+    setInput("");
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <main className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center pt-16 px-4">
+      <h1 className="text-5xl font-thin text-rose-400 mb-8 tracking-widest uppercase">
+        todos
+      </h1>
+
+      <div className="w-full max-w-md shadow-lg rounded-lg overflow-hidden">
+        {/* Input row */}
+        <form
+          onSubmit={handleSubmit}
+          className="flex items-center bg-white dark:bg-gray-800 px-4 py-3 border-b border-gray-200 dark:border-gray-700"
+        >
+          {todos.length > 0 && (
+            <button
+              type="button"
+              onClick={toggleAll}
+              className="mr-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none"
+              aria-label="Toggle all"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              ❯
+            </button>
+          )}
+          <input
+            autoFocus
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="What needs to be done?"
+            className="flex-1 bg-transparent outline-none text-gray-700 dark:text-gray-200 placeholder-gray-300 dark:placeholder-gray-500 text-lg"
+          />
+        </form>
+
+        {/* Todo list */}
+        <ul className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
+          {filtered.map((todo) => (
+            <li key={todo.id} className="flex items-center px-4 py-3 group">
+              <button
+                onClick={() => toggle(todo.id)}
+                className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center mr-3 transition-colors ${
+                  todo.completed
+                    ? "border-emerald-400 bg-emerald-400 text-white"
+                    : "border-gray-300 dark:border-gray-600 hover:border-emerald-300"
+                }`}
+                aria-label={todo.completed ? "Mark incomplete" : "Mark complete"}
+              >
+                {todo.completed && (
+                  <svg className="w-3 h-3" viewBox="0 0 12 10" fill="none">
+                    <path
+                      d="M1 5l3.5 3.5L11 1"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                )}
+              </button>
+              <span
+                className={`flex-1 text-base ${
+                  todo.completed
+                    ? "line-through text-gray-300 dark:text-gray-600"
+                    : "text-gray-700 dark:text-gray-200"
+                }`}
+              >
+                {todo.text}
+              </span>
+              <button
+                onClick={() => remove(todo.id)}
+                className="text-gray-300 dark:text-gray-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity text-xl leading-none ml-2"
+                aria-label="Delete todo"
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        {/* Footer */}
+        {todos.length > 0 && (
+          <div className="flex items-center justify-between bg-white dark:bg-gray-800 px-4 py-2 text-sm text-gray-400 dark:text-gray-500 border-t border-gray-100 dark:border-gray-700">
+            <span>
+              {activeCount} {activeCount === 1 ? "item" : "items"} left
+            </span>
+
+            <div className="flex gap-1">
+              {(["all", "active", "completed"] as Filter[]).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`px-2 py-0.5 rounded capitalize transition-colors ${
+                    filter === f
+                      ? "border border-rose-300 text-rose-400"
+                      : "hover:text-gray-600 dark:hover:text-gray-300"
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={clearCompleted}
+              className={`transition-opacity hover:text-gray-600 dark:hover:text-gray-300 ${
+                hasCompleted ? "opacity-100" : "opacity-0 pointer-events-none"
+              }`}
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+              Clear completed
+            </button>
+          </div>
+        )}
+      </div>
+
+      {todos.length === 0 && (
+        <p className="mt-8 text-gray-400 dark:text-gray-600 text-sm">
+          No todos yet — add one above!
+        </p>
+      )}
+    </main>
   );
 }
