@@ -2,15 +2,26 @@
 
 import { useState, useEffect, useRef } from "react";
 
+type Priority = "high" | "medium" | "low";
+
 interface Todo {
   id: string;
   text: string;
   completed: boolean;
   createdAt: number;
   dueDate?: string; // YYYY-MM-DD
+  priority?: Priority;
 }
 
 type Filter = "all" | "active" | "completed";
+
+const PRIORITY_ORDER: Record<Priority, number> = { high: 0, medium: 1, low: 2 };
+
+const PRIORITY_STYLES: Record<Priority, { dot: string; badge: string; label: string }> = {
+  high:   { dot: "bg-rose-500",   badge: "bg-rose-100 text-rose-600 dark:bg-rose-900/40 dark:text-rose-400",   label: "High" },
+  medium: { dot: "bg-amber-400",  badge: "bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400", label: "Med" },
+  low:    { dot: "bg-sky-400",    badge: "bg-sky-100 text-sky-600 dark:bg-sky-900/40 dark:text-sky-400",       label: "Low" },
+};
 
 function useTodos() {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -30,11 +41,11 @@ function useTodos() {
     }
   }, [todos]);
 
-  const add = (text: string, dueDate?: string) => {
+  const add = (text: string, dueDate?: string, priority?: Priority) => {
     const trimmed = text.trim();
     if (!trimmed) return;
     setTodos((prev) => [
-      { id: crypto.randomUUID(), text: trimmed, completed: false, createdAt: Date.now(), dueDate },
+      { id: crypto.randomUUID(), text: trimmed, completed: false, createdAt: Date.now(), dueDate, priority },
       ...prev,
     ]);
   };
@@ -62,6 +73,7 @@ function DueDate({ date, completed }: { date: string; completed: boolean }) {
   const today = new Date().toISOString().slice(0, 10);
   const overdue = !completed && date < today;
   const dueToday = !completed && date === today;
+  const formatted = new Date(date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
   return (
     <span
@@ -75,13 +87,7 @@ function DueDate({ date, completed }: { date: string; completed: boolean }) {
           : "text-gray-400 dark:text-gray-500"
       }`}
     >
-      {overdue ? "⚠ " : dueToday ? "Today" : ""}
-      {overdue || dueToday
-        ? ""
-        : new Date(date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-      {overdue
-        ? new Date(date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })
-        : ""}
+      {overdue ? `⚠ ${formatted}` : dueToday ? "Today" : formatted}
     </span>
   );
 }
@@ -90,22 +96,32 @@ export default function Home() {
   const { todos, add, toggle, remove, clearCompleted, toggleAll } = useTodos();
   const [input, setInput] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [priority, setPriority] = useState<Priority | "">("");
   const [filter, setFilter] = useState<Filter>("all");
 
-  const filtered = todos.filter((t) => {
-    if (filter === "active") return !t.completed;
-    if (filter === "completed") return t.completed;
-    return true;
-  });
+  const filtered = todos
+    .filter((t) => {
+      if (filter === "active") return !t.completed;
+      if (filter === "completed") return t.completed;
+      return true;
+    })
+    .sort((a, b) => {
+      // Incomplete before complete, then by priority, then by creation time
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      const pa = a.priority ? PRIORITY_ORDER[a.priority] : 3;
+      const pb = b.priority ? PRIORITY_ORDER[b.priority] : 3;
+      return pa !== pb ? pa - pb : b.createdAt - a.createdAt;
+    });
 
   const activeCount = todos.filter((t) => !t.completed).length;
   const hasCompleted = todos.some((t) => t.completed);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    add(input, dueDate || undefined);
+    add(input, dueDate || undefined, priority || undefined);
     setInput("");
     setDueDate("");
+    setPriority("");
   };
 
   return (
@@ -115,7 +131,7 @@ export default function Home() {
       </h1>
 
       <div className="w-full max-w-md shadow-lg rounded-lg overflow-hidden">
-        {/* Input row */}
+        {/* Input form */}
         <form
           onSubmit={handleSubmit}
           className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700"
@@ -139,9 +155,31 @@ export default function Home() {
               className="flex-1 bg-transparent outline-none text-gray-700 dark:text-gray-200 placeholder-gray-300 dark:placeholder-gray-500 text-lg"
             />
           </div>
-          <div className="flex items-center gap-2 px-4 pb-3">
+
+          <div className="flex items-center gap-3 px-4 pb-3">
+            {/* Priority picker */}
+            <div className="flex gap-1">
+              {(["high", "medium", "low"] as Priority[]).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPriority(priority === p ? "" : p)}
+                  className={`text-xs px-2 py-0.5 rounded transition-colors ${
+                    priority === p
+                      ? PRIORITY_STYLES[p].badge + " font-medium"
+                      : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 border border-gray-200 dark:border-gray-600"
+                  }`}
+                >
+                  {PRIORITY_STYLES[p].label}
+                </button>
+              ))}
+            </div>
+
+            <span className="text-gray-200 dark:text-gray-700">|</span>
+
+            {/* Due date picker */}
             <label className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
-              Due date
+              Due
             </label>
             <input
               type="date"
@@ -153,7 +191,7 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setDueDate("")}
-                className="text-gray-300 hover:text-gray-500 text-sm leading-none"
+                className="text-gray-300 hover:text-gray-500 text-sm leading-none -ml-1"
               >
                 ×
               </button>
@@ -165,6 +203,17 @@ export default function Home() {
         <ul className="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
           {filtered.map((todo) => (
             <li key={todo.id} className="flex items-center px-4 py-3 group">
+              {/* Priority dot */}
+              <div className="w-2 flex-shrink-0 mr-2 flex items-center justify-center">
+                {todo.priority && !todo.completed && (
+                  <span
+                    className={`w-2 h-2 rounded-full ${PRIORITY_STYLES[todo.priority].dot}`}
+                    title={todo.priority}
+                  />
+                )}
+              </div>
+
+              {/* Complete toggle */}
               <button
                 onClick={() => toggle(todo.id)}
                 className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center mr-3 transition-colors ${
@@ -186,6 +235,7 @@ export default function Home() {
                   </svg>
                 )}
               </button>
+
               <span
                 className={`flex-1 text-base ${
                   todo.completed
@@ -195,9 +245,23 @@ export default function Home() {
               >
                 {todo.text}
               </span>
+
+              {todo.priority && (
+                <span
+                  className={`text-xs px-1.5 py-0.5 rounded ml-2 whitespace-nowrap ${
+                    todo.completed
+                      ? "text-gray-300 dark:text-gray-600"
+                      : PRIORITY_STYLES[todo.priority].badge
+                  }`}
+                >
+                  {PRIORITY_STYLES[todo.priority].label}
+                </span>
+              )}
+
               {todo.dueDate && (
                 <DueDate date={todo.dueDate} completed={todo.completed} />
               )}
+
               <button
                 onClick={() => remove(todo.id)}
                 className="text-gray-300 dark:text-gray-600 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity text-xl leading-none ml-2"
