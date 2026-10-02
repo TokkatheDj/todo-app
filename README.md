@@ -1,36 +1,34 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# todos
 
-## Getting Started
+A small, fast todo list with priorities and due dates. No account and no server: your list stays in your own browser.
 
-First, run the development server:
+**Live:** https://todo-app-gamma-ecru-94.vercel.app
+
+## What it does
+
+- Add a task, and optionally give it a **priority** (High / Med / Low) and a **due date**
+- The list sorts itself: unfinished first, then by priority, then newest
+- Due dates read at a glance: **Today**, a date, or **⚠ overdue**, always in *your* time zone
+- Filter by All / Active / Completed, mark everything done at once, clear finished tasks
+- Works on a phone (the delete button is always visible on touch screens), with a keyboard and in dark mode
+- Stays in sync if it's open in two tabs
+
+## How it's built
+
+- [Next.js](https://nextjs.org) 16 (App Router) with React 19, TypeScript and Tailwind CSS 4
+- One client component (`app/page.tsx`). Todos are saved to `localStorage` and read back through React's `useSyncExternalStore`, so the server-rendered page and the first browser render agree, and a page load never overwrites the saved list
+- Prerendered as a static page and deployed on Vercel
+
+## Decisions worth noting
+
+- **"Today" means the user's day, not UTC.** An earlier version used `toISOString()`, so after 8 pm in Detroit a task due today showed as overdue. Dates are now compared on the local calendar.
+- **Accessible by default.** Every control has a name a screen reader can say ("Delete: Buy milk"), toggle buttons report whether they're pressed, and the colours pass WCAG AA contrast in both light and dark mode (checked with axe-core).
+
+## Run it locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev     # http://localhost:3000
+npm run lint
+npm run build
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
