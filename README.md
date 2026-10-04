@@ -1,5 +1,7 @@
 # todos
 
+[![CI](https://github.com/TokkatheDj/todo-app/actions/workflows/ci.yml/badge.svg)](https://github.com/TokkatheDj/todo-app/actions/workflows/ci.yml)
+
 A small, fast todo list with priorities and due dates. No account and no server: your list stays in your own browser.
 
 **Live:** https://todo-app-gamma-ecru-94.vercel.app
